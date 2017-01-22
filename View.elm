@@ -20,6 +20,12 @@ drawText str nX nY size =
     text_ [x (toString nX), y (toString nY), fontFamily "Verdana", fontSize (toString size)]
           [ Html.text str ]
 
+
+drawTextColored : String -> Int -> Int -> Int -> String -> Svg Msg
+drawTextColored str nX nY size col =
+    text_ [x (toString nX), y (toString nY), fontFamily "Verdana", fontSize (toString size), fill col]
+          [ Html.text str ]
+
 paused : List (Svg Msg)
 paused =
     [
@@ -42,7 +48,6 @@ drawBackground backgroundY = []
 
 drawPoints : Int -> List (Svg Msg)
 drawPoints points =
-
     let (reducedPoints, bg) =
         if points >= 300 then
             (points % 100, "#ff00cb")
@@ -58,7 +63,6 @@ drawPoints points =
         rect [x "200", y "740", width (toString (reducedPoints * 4)), height "20", fill "#00ffff"] [],
         drawText (String.concat ["Points : ", toString reducedPoints, " / 100"]) (400-45) 755 15
     ]
-    -- TODO
 
 drawEnemies : List EntityEnemy -> List (Svg Msg)
 drawEnemies enemies = []
@@ -101,6 +105,38 @@ drawBullets : List EntityBullet -> List (Svg Msg)
 drawBullets bullets = []
     -- TODO
 
+
+drawBox : Int -> Int -> Int -> Int -> String -> Svg Msg
+drawBox iX iY w h f =
+    rect [x (toString iX), y (toString iY), width (toString w), height (toString h), fill f] []
+
+drawWeaponGraphic : Int -> List (Svg Msg)
+drawWeaponGraphic cooldown =
+    if cooldown == 0 then
+        [ drawBox 30 750 40 40 "#000000",
+          drawBox 40 730 20 30 "#000000" ]
+    else
+        [ drawBox 30 750 40 40 "#ff0000",
+          drawBox 40 730 20 30 "#ff0000" ]
+
+drawWeapon : Weapon -> List (Svg Msg)
+drawWeapon weapon =
+    case weapon of
+        Basic cooldown ->
+            List.append (drawWeaponGraphic cooldown)
+            [(drawTextColored "Basic" 40 770 8 "#ffffff")]
+        Fast cooldown ->
+            List.append (drawWeaponGraphic cooldown)
+            [(drawTextColored "Fast" 42 770 8 "#ffffff")]
+        MultiShot cooldown ->
+            List.append (drawWeaponGraphic cooldown)
+            [(drawTextColored "MultiShot" 30 770 8 "#ffffff")]
+        Homing cooldown ->
+            List.append (drawWeaponGraphic cooldown)
+            [(drawTextColored "Homing" 35 770 8 "#ffffff")]
+
+
+
 drawView : Model -> List (Svg Msg)
 drawView model =
     if model.paused then
@@ -116,7 +152,8 @@ drawView model =
             drawEnemies model.enemies,
             drawPoints model.points,
             drawBackground model.backgroundY,
-            drawHealth model.player.health
+            drawHealth model.player.health,
+            drawWeapon model.player.weapon
         ]
 
 

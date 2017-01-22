@@ -11,7 +11,6 @@ type alias Vector =
         x : Float,
         y : Float
     }
-
 type alias Duration = Int
 
 type Effect = -- All ints are duration left
@@ -47,6 +46,7 @@ type alias EntityPowerup =
 type alias EntityPlayer =
     {
         position : Position,
+        velocity : Vector,
         effects : List Effect,
         weapon : Weapon,
         powerups : List Powerup,

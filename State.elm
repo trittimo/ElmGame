@@ -5,6 +5,7 @@ import Time exposing (Time)
 import Keyboard
 
 import Types exposing (..)
+import Helpers exposing (..)
 
 init : (Model, Cmd Msg)
 init =
@@ -14,6 +15,7 @@ init =
         points = 335,
         player = {
             position = {x = 400.0, y = 700.0},
+            velocity = vec 0.0 0.0,
             effects = [],
             weapon = Basic 0,
             powerups = [],
@@ -28,22 +30,36 @@ init =
     Cmd.none
     )
 
-moveplayer : ButtonState -> EntityPlayer -> EntityPlayer
-moveplayer key player =
-    let pos = player.position in
-    {
-    player|position =
-        case key of
-            Forward -> {pos|y = pos.y - 0.5}
-            Back -> {pos|y = pos.y + 0.5}
-            Right -> {pos|x = pos.x + 0.5}
-            Left -> {pos|x = pos.x - 0.5}
-            _ -> pos
-    }
+--moveplayer : ButtonState -> EntityPlayer -> EntityPlayer
+--moveplayer key player =
+--    let pos = player.position in
+--    {
+--    player|position =
+--        case key of
+--            Forward -> {pos|y = pos.y - 0.5}
+--            Back -> {pos|y = pos.y + 0.5}
+--            Right -> {pos|x = pos.x + 0.5}
+--            Left -> {pos|x = pos.x - 0.5}
+--            _ -> pos
+--    }
+
+--addVelocities : Velocity -> Velocity -> Float -> Velocity
+--addVelocities v1 v2 m =
+--    {v1|x = v1.x + v2.x, y = v1.y + v2.y}
+
+handleButtons : Model -> Model
+handleButtons model = model
+
+
+handleMovement : Model -> Model
+handleMovement model = model
 
 handleTick : Model -> Model
 handleTick model =
-    {model|player = moveplayer model.button model.player}
+    model |>
+        handleButtons |>
+        handleMovement
+
 
 
 handleKey : ButtonState -> Model -> Model
