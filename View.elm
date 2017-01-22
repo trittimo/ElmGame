@@ -178,7 +178,6 @@ drawWeapon weapon x y =
 
 drawPowerups : List EntityPowerup -> List (Svg Msg)
 drawPowerups powerups =
-
   let weap =
     List.head (List.map (\p ->
         case p.kind of

@@ -22,13 +22,7 @@ init =
       health = 100
     },
     powerups = [],
-    enemies = [{
-      position = {x = 400, y = 40},
-      effects = [],
-      weapon = Basic 0,
-      health = 10,
-      kind = Hardened
-    }],
+    enemies = [],
     button = NoButton,
     bullets = [],
     paused = True,
@@ -273,11 +267,11 @@ addPowerups : Model -> Model
 addPowerups model =
   if List.length model.enemies == 0 then
     if model.points >= 300 then
-      {model|powerups = [{position = {x=400, y=400}, kind = FastWeapon}]}
+      {model|powerups = [{position = {x=400, y=400}, kind = HomingWeapon}]}
     else if model.points >= 200 then
       {model|powerups = [{position = {x=400, y=400}, kind = MultiShotWeapon}]}
     else if model.points >= 100 then
-      {model|powerups = [{position = {x=400, y=400}, kind = HomingWeapon}]}
+      {model|powerups = [{position = {x=400, y=400}, kind = FastWeapon}]}
     else
       model
   else
@@ -305,6 +299,22 @@ handlePlayerBulletCollision model =
   let collisions = List.filter (\x -> (dist pos x.position < 15) && x.firedBy == TheEnemy) bullets in
   let newmodel = {model|player = {player|health = player.health - (List.length collisions) * 10}} in
   {newmodel|bullets = List.filter (\x -> not (List.member x collisions)) bullets}
+
+handlePickupPowerup : Model -> Model
+handlePickupPowerup model =
+  if (List.length model.powerups) > 0 && (dist model.player.position {x=400,y=400}) < 40 then
+    let player = model.player in
+    {model|powerups=[],player={player|weapon=
+      case List.head model.powerups of
+        Just n ->
+          case n.kind of
+            FastWeapon -> Fast 0
+            MultiShotWeapon -> MultiShot 0
+            HomingWeapon -> Homing 0
+            _ -> Basic 0
+        _ -> Basic 0}}
+  else
+    model
 
 handleCheat : Model -> Model
 handleCheat model =
@@ -350,8 +360,128 @@ destroyOffscreenBullets model =
   }
 
 handleAddEnemies : Model -> Model
-handleAddEnemies model = model
-  -- TODO
+handleAddEnemies model =
+  if (List.length model.enemies) > 0 then
+    model
+  else
+    {model|enemies =
+      if model.points >= 300 then
+        [{
+          position = {x = 400, y = 40},
+          effects = [],
+          weapon = Homing 0,
+          health = 10,
+          kind = Godlike
+        },
+        {
+          position = {x = 200, y = 40},
+          effects = [],
+          weapon = Homing 0,
+          health = 10,
+          kind = Godlike
+        },
+        {
+          position = {x = 600, y = 40},
+          effects = [],
+          weapon = Homing 0,
+          health = 10,
+          kind = Godlike
+        },
+        {
+          position = {x = 400, y = 80},
+          effects = [],
+          weapon = Homing 0,
+          health = 10,
+          kind = Godlike
+        }]
+      else if model.points >= 200 then
+        [{
+          position = {x = 400, y = 40},
+          effects = [],
+          weapon = MultiShot 0,
+          health = 10,
+          kind = Psychotic
+        },
+        {
+          position = {x = 200, y = 40},
+          effects = [],
+          weapon = MultiShot 0,
+          health = 10,
+          kind = Psychotic
+        },
+        {
+          position = {x = 600, y = 40},
+          effects = [],
+          weapon = MultiShot 0,
+          health = 10,
+          kind = Psychotic
+        },
+        {
+          position = {x = 400, y = 80},
+          effects = [],
+          weapon = MultiShot 0,
+          health = 10,
+          kind = Psychotic
+        }]
+      else if model.points >= 100 then
+        [{
+          position = {x = 400, y = 40},
+          effects = [],
+          weapon = Fast 0,
+          health = 10,
+          kind = Hardened
+        },
+        {
+          position = {x = 200, y = 40},
+          effects = [],
+          weapon = Fast 0,
+          health = 10,
+          kind = Hardened
+        },
+        {
+          position = {x = 600, y = 40},
+          effects = [],
+          weapon = Fast 0,
+          health = 10,
+          kind = Hardened
+        },
+        {
+          position = {x = 400, y = 80},
+          effects = [],
+          weapon = Fast 0,
+          health = 10,
+          kind = Hardened
+        }]
+      else
+        [{
+          position = {x = 400, y = 40},
+          effects = [],
+          weapon = Basic 0,
+          health = 10,
+          kind = Simple
+        },
+        {
+          position = {x = 200, y = 40},
+          effects = [],
+          weapon = Basic 0,
+          health = 10,
+          kind = Simple
+        },
+        {
+          position = {x = 600, y = 40},
+          effects = [],
+          weapon = Basic 0,
+          health = 10,
+          kind = Simple
+        },
+        {
+          position = {x = 400, y = 80},
+          effects = [],
+          weapon = Basic 0,
+          health = 10,
+          kind = Simple
+        }]
+    }
 
 handleEnemyLogic : Model -> Model
 handleEnemyLogic model = model
@@ -361,6 +491,7 @@ handleTick model =
   model |>
     handleCheat |>
     destroyOffscreenBullets |>
+    handlePickupPowerup |>
     handleDrag |>
     handleButtons |>
     handleWeaponCooldown |>
