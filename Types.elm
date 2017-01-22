@@ -42,7 +42,6 @@ type BulletOrigin =
 type alias EntityPowerup =
   {
     position : Position,
-    look : Vector,
     kind : Powerup
   }
 
@@ -78,6 +77,7 @@ type alias Model =
     backgroundY : Int,
     points : Int,
     player : EntityPlayer,
+    powerups : List EntityPowerup,
     enemies : List EntityEnemy,
     button : ButtonState,
     bullets : List EntityBullet,

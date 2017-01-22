@@ -145,32 +145,52 @@ drawBox iX iY w h f =
       fill f
     ] []
 
-drawWeaponGraphic : Int -> List (Svg Msg)
-drawWeaponGraphic cooldown =
+drawWeaponGraphic : Int -> Int -> Int -> List (Svg Msg)
+drawWeaponGraphic cooldown x y =
   if cooldown == 0 then
-    [ drawBox 30 750 40 40 "#000000",
-      drawBox 40 730 20 30 "#000000" ]
+    -- 30 750 40 40
+    -- 40 730 20 30
+    [ drawBox x y 40 40 "#000000",
+      drawBox (x+10) (y-20) 20 30 "#000000" ]
   else
-    [ drawBox 30 750 40 40 "#ff0000",
-      drawBox 40 730 20 30 "#ff0000" ]
+    [ drawBox x y 40 40 "#ff0000",
+      drawBox (x+10) (y-20) 20 30 "#ff0000" ]
 
-drawWeapon : Weapon -> List (Svg Msg)
-drawWeapon weapon =
+drawWeapon : Weapon -> Int -> Int -> List (Svg Msg)
+drawWeapon weapon x y =
   case weapon of
     Basic cooldown ->
-      List.append (drawWeaponGraphic cooldown)
-      [(drawTextColored "Basic" 40 770 8 "#ffffff")]
+      List.append (drawWeaponGraphic cooldown x y)
+      -- 40 770 8
+      [(drawTextColored "Basic" (x+10) (y+20) 8 "#ffffff")]
     Fast cooldown ->
-      List.append (drawWeaponGraphic cooldown)
-      [(drawTextColored "Fast" 42 770 8 "#ffffff")]
+      -- 42 770 8
+      List.append (drawWeaponGraphic cooldown x y)
+      [(drawTextColored "Fast" (x+12) (y+20) 8 "#ffffff")]
     MultiShot cooldown ->
-      List.append (drawWeaponGraphic cooldown)
-      [(drawTextColored "MultiShot" 30 770 8 "#ffffff")]
+      -- 30 770 8
+      List.append (drawWeaponGraphic cooldown x y)
+      [(drawTextColored "MultiShot" x (y+20) 8 "#ffffff")]
     Homing cooldown ->
-      List.append (drawWeaponGraphic cooldown)
-      [(drawTextColored "Homing" 35 770 8 "#ffffff")]
+      -- 35 770 8
+      List.append (drawWeaponGraphic cooldown x y)
+      [(drawTextColored "Homing" (x+5) (y+20) 8 "#ffffff")]
 
+drawPowerups : List EntityPowerup -> List (Svg Msg)
+drawPowerups powerups =
 
+  let weap =
+    List.head (List.map (\p ->
+        case p.kind of
+          FastWeapon -> drawWeapon (Fast 0) 400 400
+          MultiShotWeapon -> drawWeapon (MultiShot 0) 400 400
+          HomingWeapon -> drawWeapon (Homing 0) 400 400
+          _ -> drawWeapon (Basic 0) 400 400)
+        powerups)
+    in
+  case weap of
+    Just w -> w
+    Nothing -> []
 
 drawView : Model -> List (Svg Msg)
 drawView model =
@@ -186,9 +206,10 @@ drawView model =
       drawBullets model.bullets,
       drawPlayer model.player,
       drawEnemies model.enemies,
+      drawPowerups model.powerups,
       drawPoints model.points,
       drawHealth model.player.health,
-      drawWeapon model.player.weapon
+      drawWeapon model.player.weapon 30 750
     ]
 
 

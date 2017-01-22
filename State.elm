@@ -21,6 +21,7 @@ init =
       powerups = [],
       health = 100
     },
+    powerups = [],
     enemies = [{
       position = {x = 400, y = 40},
       effects = [],
@@ -44,10 +45,10 @@ handleButtons model =
       vecAddMax
         player.velocity
         (case model.button of
-          Left -> vec -0.08 0
-          Right -> vec 0.08 0
-          Forward -> vec 0 -0.08
-          Back -> vec 0 0.08
+          Left -> vec -0.04 0
+          Right -> vec 0.04 0
+          Forward -> vec 0 -0.04
+          Back -> vec 0 0.04
           _ -> vec 0 0)
         0.8}}
 
@@ -261,15 +262,49 @@ handleBullets model =
       List.map (\b -> attractBullet b moved) moved.bullets} in
   moved2
 
+collidesEnemy : (EntityBullet, EntityEnemy) -> Float -> Bool
+collidesEnemy (b, e) r =
+  if b.firedBy == ThePlayer then
+    (dist b.position e.position) < r
+  else
+    False
 
+addPowerups : Model -> Model
+addPowerups model =
+  if List.length model.enemies == 0 then
+    if model.points >= 300 then
+      {model|powerups = [{position = {x=400, y=400}, kind = FastWeapon}]}
+    else if model.points >= 200 then
+      {model|powerups = [{position = {x=400, y=400}, kind = MultiShotWeapon}]}
+    else if model.points >= 100 then
+      {model|powerups = [{position = {x=400, y=400}, kind = HomingWeapon}]}
+    else
+      model
+  else
+    model
 
 handleBulletCollision : Model -> Model
-handleBulletCollision model = model
-  --List.map
-  --  (\b ->
+handleBulletCollision model =
+  let bullets = model.bullets in
+  let enemies = model.enemies in
+  if List.length bullets > 0 && List.length enemies > 0 then
+    let player = model.player in
+    let collisions =
+      List.filter (\x -> not (collidesEnemy x 15)) (List.map2 (,) bullets enemies) in
+    let (aliveBullets, aliveEnemies) = List.unzip collisions in
+    let newmodel = {model|bullets = aliveBullets, enemies = aliveEnemies, points = model.points + ((List.length enemies) - (List.length aliveEnemies)) * 25} in
+    addPowerups newmodel
+  else
+    model
 
-  --  )
-  --  model.bullets
+handlePlayerBulletCollision : Model -> Model
+handlePlayerBulletCollision model =
+  let pos = model.player.position in
+  let player = model.player in
+  let bullets = model.bullets in
+  let collisions = List.filter (\x -> (dist pos x.position < 15) && x.firedBy == TheEnemy) bullets in
+  let newmodel = {model|player = {player|health = player.health - (List.length collisions) * 10}} in
+  {newmodel|bullets = List.filter (\x -> not (List.member x collisions)) bullets}
 
 handleCheat : Model -> Model
 handleCheat model =
@@ -314,6 +349,13 @@ destroyOffscreenBullets model =
     model.bullets
   }
 
+handleAddEnemies : Model -> Model
+handleAddEnemies model = model
+  -- TODO
+
+handleEnemyLogic : Model -> Model
+handleEnemyLogic model = model
+
 handleTick : Model -> Model
 handleTick model =
   model |>
@@ -325,6 +367,9 @@ handleTick model =
     handleShoot |>
     handleBullets |>
     handleBulletCollision |>
+    handleAddEnemies |>
+    handleEnemyLogic |>
+    handlePlayerBulletCollision |>
     handleMovement |>
     handleBackground
 
