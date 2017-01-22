@@ -9,116 +9,384 @@ import Helpers exposing (..)
 
 init : (Model, Cmd Msg)
 init =
-    (
-    {
-        backgroundY = 0,
-        points = 335,
-        player = {
-            position = {x = 400.0, y = 700.0},
-            velocity = vec 0.0 0.0,
-            effects = [],
-            weapon = Basic 0,
-            powerups = [],
-            health = 100
-        },
-        enemies = [],
-        button = NoButton,
-        bullets = [],
-        paused = True,
-        wave = 5000
+  (
+  {
+    backgroundY = 0,
+    points = 0,
+    player = {
+      position = {x = 400.0, y = 700.0},
+      velocity = vec 0.0 0.0,
+      effects = [],
+      weapon = Basic 0,
+      powerups = [],
+      health = 100
     },
-    Cmd.none
-    )
-
---moveplayer : ButtonState -> EntityPlayer -> EntityPlayer
---moveplayer key player =
---    let pos = player.position in
---    {
---    player|position =
---        case key of
---            Forward -> {pos|y = pos.y - 0.5}
---            Back -> {pos|y = pos.y + 0.5}
---            Right -> {pos|x = pos.x + 0.5}
---            Left -> {pos|x = pos.x - 0.5}
---            _ -> pos
---    }
-
---addVelocities : Velocity -> Velocity -> Float -> Velocity
---addVelocities v1 v2 m =
---    {v1|x = v1.x + v2.x, y = v1.y + v2.y}
+    enemies = [{
+      position = {x = 400, y = 40},
+      effects = [],
+      weapon = Basic 0,
+      health = 10,
+      kind = Hardened
+    }],
+    button = NoButton,
+    bullets = [],
+    paused = True,
+    wave = 5000
+  },
+  Cmd.none
+  )
 
 handleButtons : Model -> Model
-handleButtons model = model
+handleButtons model =
+  let player = model.player in
+  {model|player =
+    {player|velocity =
+      vecAddMax
+        player.velocity
+        (case model.button of
+          Left -> vec -0.08 0
+          Right -> vec 0.08 0
+          Forward -> vec 0 -0.08
+          Back -> vec 0 0.08
+          _ -> vec 0 0)
+        0.8}}
 
+newBullet : Position -> Vector -> Weapon -> BulletOrigin -> List EntityBullet
+newBullet pos dir weap origin =
+  case weap of
+    MultiShot c ->
+      -- Multiple bullets
+      [{
+        position = pos,
+        firedBy = origin,
+        velocity = vecAdd dir (vecDiv (vecInv dir) 3),
+        kind = BasicShot
+        },
+        {
+        position = pos,
+        firedBy = origin,
+        velocity =
+          let newvec = vecAdd dir (vec -1 0) in
+          vecAdd newvec (vecDiv (vecInv newvec) 3),
+        kind = BasicShot
+        },
+        {
+        position = pos,
+        firedBy = origin,
+        velocity =
+          let newvec = vecAdd dir (vec 1 0) in
+          vecAdd newvec (vecDiv (vecInv newvec) 3),
+        kind = BasicShot
+        }]
+    _ ->
+      [{
+        position = pos,
+        firedBy = origin,
+        velocity =
+          case weap of
+            Basic c -> vecAdd dir (vecDiv (vecInv dir) 3)
+            Fast c -> dir
+            _ -> vecAdd dir (vecDiv (vecInv dir) 3),
+        kind =
+          case weap of
+            Basic c -> BasicShot
+            Fast c -> FastShot
+            MultiShot c -> BasicShot
+            Homing c -> HomingShot
+      }]
+
+shootBullet : EntityPlayer -> Weapon -> List EntityBullet
+shootBullet player weapon =
+  newBullet player.position (vec 0 -1) weapon ThePlayer
+
+shootBulletEnemy : EntityEnemy -> Weapon -> List EntityBullet
+shootBulletEnemy enemy weapon =
+  newBullet enemy.position (vec 0 1) weapon TheEnemy
+
+handleShoot : Model -> Model
+handleShoot model =
+  case model.button of
+    Shoot ->
+      (let player = model.player in
+      let weap = player.weapon in
+      case weap of
+        Basic c ->
+          if c > 0 then
+            model
+          else
+            {model|player = {player|weapon = Basic 300},
+                  bullets =
+                    List.append
+                      (shootBullet player weap)
+                      model.bullets}
+        Fast c ->
+          if c > 0 then
+            model
+          else
+            {model|player = {player|weapon = Fast 300},
+                  bullets =
+                    List.append
+                      (shootBullet player weap)
+                      model.bullets}
+        MultiShot c ->
+          if c > 0 then
+            model
+          else
+            {model|player = {player|weapon = MultiShot 300},
+                  bullets =
+                    List.append
+                      (shootBullet player weap)
+                      model.bullets}
+        Homing c ->
+          if c > 0 then
+            model
+          else
+            {model|player = {player|weapon = Homing 300},
+                  bullets =
+                    List.append
+                      (shootBullet player weap)
+                      model.bullets})
+    _ -> model
 
 handleMovement : Model -> Model
-handleMovement model = model
+handleMovement model =
+  let player = model.player in
+  {model|player =
+    {player|position =
+      {x = player.position.x + player.velocity.x,
+       y = player.position.y + player.velocity.y}}}
+
+
+handleDrag : Model -> Model
+handleDrag model =
+  let player = model.player in
+  {model|player = 
+    {player|velocity =
+      {x =
+        if player.velocity.x > 0 then
+          player.velocity.x - 0.01
+        else if player.velocity.x < 0 then
+          player.velocity.x + 0.01
+        else
+          player.velocity.x,
+      y =
+        if player.velocity.y > 0 then
+          player.velocity.y - 0.01
+        else if player.velocity.y < 0 then
+          player.velocity.y + 0.01
+        else
+          player.velocity.y}}}
+
+
+handleBackground : Model -> Model
+handleBackground model =
+  if model.backgroundY >= 800 then
+    {model|backgroundY = 0}
+  else
+    {model|backgroundY = model.backgroundY + 1}
+
+
+handleWeaponCooldown : Model -> Model
+handleWeaponCooldown model =
+  let player = model.player in
+  if (case player.weapon of
+        Basic c -> c
+        Fast c -> c
+        MultiShot c -> c
+        Homing c -> c) > 0 then
+    {model|player = {player|weapon =
+      case player.weapon of
+        Basic c -> Basic (c - 1)
+        Fast c -> Fast (c - 1)
+        MultiShot c -> MultiShot (c - 1)
+        Homing c -> Homing (c - 1)}}
+  else
+    model
+
+moveBullet : EntityBullet -> EntityBullet
+moveBullet bullet =
+  let pos = bullet.position in
+  {bullet|position =
+    {pos|x = pos.x + bullet.velocity.x, y = pos.y + bullet.velocity.y}}
+
+getNearestEnemy : Position -> Model -> EntityEnemy
+getNearestEnemy pos model =
+  List.foldl
+    (\current nearest ->
+      if (dist pos current.position) < (dist pos nearest.position) then
+        current
+      else
+        nearest)
+    {
+      position = {x=-80000,y=-80000},
+      effects = [],
+      weapon = Basic 0,
+      health = 10,
+      kind = Simple
+    }
+    model.enemies
+
+moveTowards : Position -> Vector -> Position -> Vector
+moveTowards mypos vel enemy =
+  {vel|x =
+    if mypos.x > enemy.x && vel.x >= 0 then
+      vel.x - 0.09
+    else if mypos.x < enemy.x && vel.x <= 0 then
+      vel.x + 0.09
+    else
+      vel.x
+    }
+
+attractBullet : EntityBullet -> Model -> EntityBullet
+attractBullet bullet model =
+  case bullet.kind of
+    HomingShot ->
+      case bullet.firedBy of
+        ThePlayer ->
+          if List.length model.enemies > 0 then 
+            {bullet|velocity = moveTowards bullet.position bullet.velocity (getNearestEnemy bullet.position model).position}
+          else
+            bullet
+        _ ->
+          -- TODO
+          bullet
+    _ -> bullet
+
+
+handleBullets : Model -> Model
+handleBullets model =
+  let moved = {model|bullets = List.map (\b -> moveBullet b) model.bullets} in
+  let moved2 =
+    {moved|bullets =
+      List.map (\b -> attractBullet b moved) moved.bullets} in
+  moved2
+
+
+
+handleBulletCollision : Model -> Model
+handleBulletCollision model = model
+  --List.map
+  --  (\b ->
+
+  --  )
+  --  model.bullets
+
+handleCheat : Model -> Model
+handleCheat model =
+  case model.button of
+    Cheat ->
+      let player = model.player in
+      {model|player = {player|weapon =
+        case player.weapon of
+          Basic c ->
+            if c > 0 then
+              Basic c
+            else
+              Fast 50
+          Fast c ->
+            if c > 0 then
+              Fast c
+            else
+              MultiShot 50
+          MultiShot c ->
+            if c > 0 then
+              MultiShot c
+            else
+              Homing 50
+          Homing c ->
+            if c > 0 then
+              Homing c
+            else
+              Basic 50}}
+    _ ->
+      model
+
+destroyOffscreenBullets : Model -> Model
+destroyOffscreenBullets model =
+  {model|bullets = List.filterMap 
+    (\b ->
+      if b.position.x > 800 || b.position.x < 0 ||
+         b.position.y > 800 || b.position.y < 0 then
+        Nothing
+      else
+        Just b
+    )
+    model.bullets
+  }
 
 handleTick : Model -> Model
 handleTick model =
-    model |>
-        handleButtons |>
-        handleMovement
-
+  model |>
+    handleCheat |>
+    destroyOffscreenBullets |>
+    handleDrag |>
+    handleButtons |>
+    handleWeaponCooldown |>
+    handleShoot |>
+    handleBullets |>
+    handleBulletCollision |>
+    handleMovement |>
+    handleBackground
 
 
 handleKey : ButtonState -> Model -> Model
 handleKey key model =
-    case key of
-        Pause -> {model|paused = (not model.paused)}
-        _ -> {model|button = key}
+  case key of
+    Pause -> {model|paused = (not model.paused)}
+    _ -> {model|button = key}
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
-    (case msg of
-        Key key -> Debug.log "model" (handleKey key model)
-        Tick -> handleTick model
-        _ -> model,
-    Cmd.none)
+  (case msg of
+    -- Debug.log "model"
+    Key key -> (handleKey key model)
+    Tick -> handleTick model
+    _ -> model,
+  Cmd.none)
 
 
 getButtonFromCode : Keyboard.KeyCode -> ButtonState
 getButtonFromCode code =
-    case code of
-        37 -> Left
-        39 -> Right
-        38 -> Forward
-        40 -> Back
-        64 -> Left
-        87 -> Forward
-        68 -> Right
-        83 -> Back
-        27 -> Pause
-        67 -> Cheat
-        32 -> Shoot
-        _ -> NoButton
+  case code of
+    37 -> Left
+    39 -> Right
+    38 -> Forward
+    40 -> Back
+    65 -> Left
+    87 -> Forward
+    68 -> Right
+    83 -> Back
+    27 -> Pause
+    67 -> Cheat
+    32 -> Shoot
+    _ -> NoButton
 
 handleKeyDown : Keyboard.KeyCode -> ButtonState -> Msg
 handleKeyDown code currentButton =
-    let button = getButtonFromCode code in
-    case button of
-        NoButton -> NoUpdate
-        _ ->
-            if currentButton == button then
-                NoUpdate
-            else
-                Key button
+  let button = getButtonFromCode code in
+  case button of
+    NoButton -> NoUpdate
+    _ ->
+      if currentButton == button then
+        NoUpdate
+      else
+        Key button
 
 
 handleKeyUp : Keyboard.KeyCode -> ButtonState -> Msg
 handleKeyUp code currentButton =
-    let button = getButtonFromCode code in
-    if button == currentButton then
-        Key NoButton
-    else
-        NoUpdate
+  let button = getButtonFromCode code in
+  if button == currentButton then
+    Key NoButton
+  else
+    NoUpdate
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch
-    [
-        Keyboard.downs (\k -> handleKeyDown k model.button),
-        Keyboard.ups (\k -> handleKeyUp k model.button),
-        Time.every 5 (\t -> if model.paused then NoUpdate else Tick)
-    ]
+  Sub.batch
+  [
+    Keyboard.downs (\k -> handleKeyDown k model.button),
+    Keyboard.ups (\k -> handleKeyUp k model.button),
+    Time.every 5 (\t -> if model.paused then NoUpdate else Tick)
+  ]
