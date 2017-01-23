@@ -293,19 +293,6 @@ handleBulletCollision model =
     let (aliveB, aliveE) = (removeAll model.bullets deadB,removeAll model.enemies deadE) in
     addPowerups {model|bullets=aliveB,enemies=aliveE,points=model.points + ((length model.enemies)-(length aliveE))*25}
 
-  --let bullets = model.bullets in
-  --let enemies = model.enemies in
-  --if List.length bullets > 0 && List.length enemies > 0 then
-  --  let player = model.player in
-  --  let friendlyBullets = List.filter (\b -> b.firedBy == ThePlayer) bullets in
-  --  let combined = List.concat <| List.map (\x -> List.map (\y -> (x, y)) enemies) friendlyBullets in
-  --  let collisions = getCollisions combined in
-  --  let (aliveBullets, aliveEnemies) = List.unzip collisions in
-  --  let newmodel = {model|bullets = aliveBullets, enemies = aliveEnemies, points = model.points + ((List.length enemies) - (List.length aliveEnemies)) * 25} in
-  --  addPowerups newmodel
-  --else
-  --  model
-
 handlePlayerBulletCollision : Model -> Model
 handlePlayerBulletCollision model =
   let pos = model.player.position in
@@ -498,8 +485,32 @@ handleAddEnemies model =
         }]
     }
 
+moveTowardsPlayer : Position -> Position -> Float-> Position
+moveTowardsPlayer mypos playerpos speed =
+  if mypos.x > playerpos.x then
+    if mypos.y > playerpos.y then
+      {x=mypos.x-speed,y=mypos.y-speed}
+    else
+      {x=mypos.x-speed,y=mypos.y+speed}
+  else if mypos.y > playerpos.y then
+    {x=mypos.x+speed,y=mypos.y-speed}
+  else
+    {x=mypos.x+speed,y=mypos.y+speed}
+
 handleEnemyLogic : Model -> Model
-handleEnemyLogic model = model
+handleEnemyLogic model =
+  {model|enemies =
+    map (\e ->
+      case e.kind of
+        Simple ->
+          {e|position=moveTowardsPlayer e.position model.player.position 0.09}
+        Hardened ->
+          {e|position=moveTowardsPlayer e.position model.player.position 0.15}
+        Psychotic ->
+          {e|position=moveTowardsPlayer e.position model.player.position 0.35}
+        Godlike ->
+          {e|position=moveTowardsPlayer e.position model.player.position 0.25})
+    model.enemies}
 
 handleTick : Model -> Model
 handleTick model =
