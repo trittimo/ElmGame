@@ -184,6 +184,12 @@ handleBackground model =
 
 handleWeaponCooldown : Model -> Model
 handleWeaponCooldown model =
+  let enemies = map (\e ->
+    {e|weapon=case e.weapon of
+      Basic c -> if c > 0 then Basic (c-1) else Basic 0
+      Fast c -> if c > 0 then Fast (c-1) else Fast 0
+      MultiShot c -> if c > 0 then MultiShot (c-1) else MultiShot 0
+      Homing c -> if c > 0 then Homing (c-1) else Homing 0}) model.enemies in
   let player = model.player in
   if (case player.weapon of
         Basic c -> c
@@ -195,9 +201,9 @@ handleWeaponCooldown model =
         Basic c -> Basic (c - 1)
         Fast c -> Fast (c - 1)
         MultiShot c -> MultiShot (c - 1)
-        Homing c -> Homing (c - 1)}}
+        Homing c -> Homing (c - 1)}, enemies = enemies}
   else
-    model
+    {model|enemies = enemies}
 
 moveBullet : EntityBullet -> EntityBullet
 moveBullet bullet =
@@ -512,6 +518,59 @@ handleEnemyLogic model =
           {e|position=moveTowardsPlayer e.position model.player.position 0.25})
     model.enemies}
 
+handlePlayerEnemyCollision : Model -> Model
+handlePlayerEnemyCollision model =
+  let collisions = filter (\e -> (dist model.player.position e.position) < 15) model.enemies in
+  let newE = removeAll model.enemies collisions in
+  let player = model.player in
+  {model|player={player|health=player.health-(length collisions)*10},points=model.points+25*(length collisions),enemies=newE}
+
+enemyShoot :  Model -> EntityEnemy -> Model
+enemyShoot model player =
+  let weap = player.weapon in
+  let newEnemies = removeAll model.enemies [player] in
+  case weap of
+    Basic c ->
+      if c > 0 then
+        model
+      else
+        {model|enemies = {player|weapon = Basic 300} :: newEnemies,
+              bullets =
+                List.append
+                  (shootBulletEnemy player weap)
+                  model.bullets}
+    Fast c ->
+      if c > 0 then
+        model
+      else
+        {model|enemies = {player|weapon = Fast 300} :: newEnemies,
+              bullets =
+                List.append
+                  (shootBulletEnemy player weap)
+                  model.bullets}
+    MultiShot c ->
+      if c > 0 then
+        model
+      else
+        {model|enemies = {player|weapon = MultiShot 300} :: newEnemies,
+              bullets =
+                List.append
+                  (shootBulletEnemy player weap)
+                  model.bullets}
+    Homing c ->
+      if c > 0 then
+        model
+      else
+        {model|enemies = {player|weapon = Homing 300} :: newEnemies,
+              bullets =
+                List.append
+                  (shootBulletEnemy player weap)
+                  model.bullets}
+
+handleEnemyShoot : Model -> Model
+handleEnemyShoot model =
+  foldl (\e m -> (enemyShoot m e)) model model.enemies
+
 handleTick : Model -> Model
 handleTick model =
   model |>
@@ -522,11 +581,13 @@ handleTick model =
     handleButtons |>
     handleWeaponCooldown |>
     handleShoot |>
+    handleEnemyShoot |>
     handleBullets |>
     handleBulletCollision |>
     handleAddEnemies |>
     handleEnemyLogic |>
     handlePlayerBulletCollision |>
+    handlePlayerEnemyCollision |>
     handleMovement |>
     handleBackground
 
