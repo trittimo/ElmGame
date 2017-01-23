@@ -6,6 +6,7 @@ import Keyboard
 
 import Types exposing (..)
 import Helpers exposing (..)
+import List exposing(..)
 
 init : (Model, Cmd Msg)
 init =
@@ -277,19 +278,33 @@ addPowerups model =
   else
     model
 
+removeAll : List a -> List a -> List a
+removeAll ls toRemove =
+  filter (\x -> not (member x toRemove)) ls
+
 handleBulletCollision : Model -> Model
 handleBulletCollision model =
-  let bullets = model.bullets in
-  let enemies = model.enemies in
-  if List.length bullets > 0 && List.length enemies > 0 then
-    let player = model.player in
-    let collisions =
-      List.filter (\x -> not (collidesEnemy x 15)) (List.map2 (,) bullets enemies) in
-    let (aliveBullets, aliveEnemies) = List.unzip collisions in
-    let newmodel = {model|bullets = aliveBullets, enemies = aliveEnemies, points = model.points + ((List.length enemies) - (List.length aliveEnemies)) * 25} in
-    addPowerups newmodel
-  else
+  let combined = concat (map (\b -> map (\e -> (b, e)) model.enemies) model.bullets) in
+  if length combined == 0 then
     model
+  else
+    let (deadB, deadE) = unzip (filter (\(b, e) ->
+      (dist b.position e.position) < 15 && b.firedBy == ThePlayer) combined) in
+    let (aliveB, aliveE) = (removeAll model.bullets deadB,removeAll model.enemies deadE) in
+    addPowerups {model|bullets=aliveB,enemies=aliveE,points=model.points + ((length model.enemies)-(length aliveE))*25}
+
+  --let bullets = model.bullets in
+  --let enemies = model.enemies in
+  --if List.length bullets > 0 && List.length enemies > 0 then
+  --  let player = model.player in
+  --  let friendlyBullets = List.filter (\b -> b.firedBy == ThePlayer) bullets in
+  --  let combined = List.concat <| List.map (\x -> List.map (\y -> (x, y)) enemies) friendlyBullets in
+  --  let collisions = getCollisions combined in
+  --  let (aliveBullets, aliveEnemies) = List.unzip collisions in
+  --  let newmodel = {model|bullets = aliveBullets, enemies = aliveEnemies, points = model.points + ((List.length enemies) - (List.length aliveEnemies)) * 25} in
+  --  addPowerups newmodel
+  --else
+  --  model
 
 handlePlayerBulletCollision : Model -> Model
 handlePlayerBulletCollision model =
